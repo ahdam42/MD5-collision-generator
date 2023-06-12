@@ -17,8 +17,10 @@ type RambowTableElement struct {
 
 const CHAIN_LENGTH = 4294967297
 const CSV_INITIAL_VALUE_INDEX = 0
-const CSV_FINAL_HASH_INDEX = 0
+const CSV_FINAL_HASH_INDEX = 1
 const CSV_DB_FILE_NAME = "collision_db.csv"
+const ARG_OPERATION_INDEX = 1
+const ARG_PARAMETER_INDEX = 2
 
 func GetMD5Hash(text string) string {
    hash := md5.Sum([]byte(text))
@@ -124,10 +126,10 @@ func SearchCollision(text string) {
 }
 
 func main() {
-    if os.Args[1] == "find" {
-        SearchCollision(os.Args[2])
+    if os.Args[ARG_OPERATION_INDEX] == "find" {
+        SearchCollision(os.Args[ARG_PARAMETER_INDEX])
     } else {
-        threads, _ := strconv.Atoi(os.Args[2])
+        threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
         Generate(threads)
     }
 }
