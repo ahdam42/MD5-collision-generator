@@ -38,20 +38,23 @@ func GetRambowTableElement(text int, c chan RambowTableElement) {
 
 func ReadCollisionDatabase() ([]RambowTableElement, map[string]bool) {
     rambowTableElements := []RambowTableElement{};
-	hashSet := make(map[string]bool)
+    hashSet := make(map[string]bool)
     f, _ := os.Open(CSV_DB_FILE_NAME)
-    defer f.Close()
     r := csv.NewReader(f)
 
+    defer f.Close()
+    
     for {
         record, err := r.Read()
+
         if err == io.EOF {
             break
         }
-		finalHash := record[CSV_FINAL_HASH_INDEX ]
-		initiavValue, _ := strconv.Atoi(record[CSV_INITIAL_VALUE_INDEX])
+
+        finalHash := record[CSV_FINAL_HASH_INDEX ]
+        initiavValue, _ := strconv.Atoi(record[CSV_INITIAL_VALUE_INDEX])
         rambowTableElements = append(rambowTableElements, RambowTableElement{initialValue: initiavValue, finalHash: finalHash})
-		hashSet[finalHash] = true
+        hashSet[finalHash] = true
     }
 
     return rambowTableElements, hashSet
@@ -59,6 +62,7 @@ func ReadCollisionDatabase() ([]RambowTableElement, map[string]bool) {
 
 func AddColToCollisionDatabase(column []string)  {
     f, err := os.OpenFile(CSV_DB_FILE_NAME, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+
     defer f.Close()
 
     if err != nil {
@@ -74,7 +78,6 @@ func AddColToCollisionDatabase(column []string)  {
 func Generate(threads int) {
     c := make(chan RambowTableElement)
     initialValue := 0
-
     rambowTableElements, _ := ReadCollisionDatabase()
 
     for _, rambowTableElement := range rambowTableElements {
@@ -100,23 +103,23 @@ func Generate(threads int) {
 }
 
 func SearchCollision(text string) {
-	hash := GetMD5Hash(text)
-	step := 1
+    hash := GetMD5Hash(text)
+    step := 1
     rambowTableElements, hashset := ReadCollisionDatabase()
     
     for {
-		if (hashset[hash]) {
-			initialValue := 0
-			for _, rambowTableElement := range rambowTableElements {
-				if rambowTableElement.finalHash == hash {
-					initialValue = rambowTableElement.initialValue
-					break
-				}
-			}
-			fmt.Printf("Some collision has been founded!\n Initial Value: %ds. Step: %d\n", initialValue, step)
-		}
+        if (hashset[hash]) {
+            initialValue := 0
+            for _, rambowTableElement := range rambowTableElements {
+                if rambowTableElement.finalHash == hash {
+                    initialValue = rambowTableElement.initialValue
+                    break
+                }
+            }
+            fmt.Printf("Some collision has been founded!\n Initial Value: %ds. Step: %d\n", initialValue, step)
+        }
         hash = GetMD5Hash(hash)
-		step++
+        step++
     }
 }
 
