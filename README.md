@@ -9,4 +9,4 @@ Multi-threaded md5 collision generator using rainbow tables on Go
 ### Adding new entries to the rainbow table using 16 threads
     ./RainbowTableGenerator generate 16
 ### Trying to find a collision
-    ./RainbowTableGenerator find admin
+    ./RainbowTableGenerator find candidate1 candidate2 [...candidateN]

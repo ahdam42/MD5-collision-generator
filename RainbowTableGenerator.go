@@ -104,7 +104,7 @@ func Generate(threads int) {
     }
 }
 
-func SearchCollision(text string) {
+func SearchCollision(text string, isFinishedChain chan bool) {
     hash := GetMD5Hash(text)
     step := 1
     rambowTableElements, hashset := ReadCollisionDatabase()
@@ -119,6 +119,7 @@ func SearchCollision(text string) {
                 }
             }
             fmt.Printf("Some collision has been founded!\n Initial Value: %ds. Step: %d\n", initialValue, step)
+            isFinishedChain <- true
         }
         hash = GetMD5Hash(hash)
         step++
@@ -127,7 +128,14 @@ func SearchCollision(text string) {
 
 func main() {
     if os.Args[ARG_OPERATION_INDEX] == "find" {
-        SearchCollision(os.Args[ARG_PARAMETER_INDEX])
+        args := os.Args[ARG_PARAMETER_INDEX:]
+        isFinishedChain := make(chan bool)
+        for _, collisionCandidate := range args {
+            go SearchCollision(collisionCandidate, isFinishedChain)
+            fmt.Printf("Searcher for '%s' has been started\n", collisionCandidate)
+        }
+        <- isFinishedChain
+        
     } else {
         threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
         Generate(threads)
