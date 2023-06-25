@@ -8,6 +8,7 @@ import (
     "strconv"
     "io"
     "os"
+    "sync"
 )
 
 type RambowTableElement struct {
@@ -104,14 +105,22 @@ func Generate(threads int) {
     }
 }
 
-func SearchCollision(text string, isFinishedChain chan bool) {
+func SearchCollision(text string, rambowTableElements []RambowTableElement, hashset map[string]bool, wg *sync.WaitGroup) {
+    defer wg.Done()
+    
     hash := GetMD5Hash(text)
     step := 1
-    rambowTableElements, hashset := ReadCollisionDatabase()
     
     for {
+        if step > CHAIN_LENGTH {
+            fmt.Printf("No collision for '%s' was found.\n", text)
+            break;
+        }
+
         if (hashset[hash]) {
             initialValue := 0
+
+            // find initial chain value
             for _, rambowTableElement := range rambowTableElements {
                 if rambowTableElement.finalHash == hash {
                     initialValue = rambowTableElement.initialValue
@@ -119,7 +128,17 @@ func SearchCollision(text string, isFinishedChain chan bool) {
                 }
             }
             fmt.Printf("Some collision has been founded!\n Initial Value: %ds. Step: %d\n", initialValue, step)
-            isFinishedChain <- true
+
+            // find collisioned value
+            collisionChain := GetMD5Hash(strconv.Itoa(initialValue))
+    
+            for i := 1; i < CHAIN_LENGTH - step - 1; i++ {
+                collisionChain = GetMD5Hash(collisionChain)
+            }
+
+            fmt.Printf("Collision for '%s'\n Initial Value: %d. Hash: %s\n", text, hash)
+
+            break;
         }
         hash = GetMD5Hash(hash)
         step++
@@ -128,14 +147,16 @@ func SearchCollision(text string, isFinishedChain chan bool) {
 
 func main() {
     if os.Args[ARG_OPERATION_INDEX] == "find" {
+        var wg sync.WaitGroup
         args := os.Args[ARG_PARAMETER_INDEX:]
-        isFinishedChain := make(chan bool)
+        rambowTableElements, hashset := ReadCollisionDatabase()
+
+        wg.Add(len(args))
         for _, collisionCandidate := range args {
-            go SearchCollision(collisionCandidate, isFinishedChain)
+            go SearchCollision(collisionCandidate, rambowTableElements, hashset, &wg)
             fmt.Printf("Searcher for '%s' has been started\n", collisionCandidate)
         }
-        <- isFinishedChain
-        
+        wg.Wait()
     } else {
         threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
         Generate(threads)
