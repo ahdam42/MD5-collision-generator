@@ -9,6 +9,7 @@ import (
     "io"
     "os"
     "sync"
+    "math/rand"
 )
 
 type RambowTableElement struct {
@@ -29,17 +30,7 @@ func GetMD5Hash(text string) string {
    return hex.EncodeToString(hash[:])
 }
 
-func GetRambowTableElement(text int, c chan RambowTableElement) {
-    hash := GetMD5Hash(strconv.Itoa(text))
-    
-    for i := 1; i < CHAIN_LENGTH; i++ {
-        hash = GetMD5Hash(hash)
-    }
-
-    c <- RambowTableElement{initialValue:text, finalHash:hash}
-}
-
-func ReadCollisionDatabase() ([]RambowTableElement, map[string]bool) {
+func ReadRainbowTable() ([]RambowTableElement, map[string]bool) {
     rambowTableElements := []RambowTableElement{};
     hashSet := make(map[string]bool)
     f, _ := os.Open(CSV_DB_FILE_NAME)
@@ -63,49 +54,7 @@ func ReadCollisionDatabase() ([]RambowTableElement, map[string]bool) {
     return rambowTableElements, hashSet
 }
 
-func AddColToCollisionDatabase(column []string)  {
-    f, err := os.OpenFile(CSV_DB_FILE_NAME, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-
-    defer f.Close()
-
-    if err != nil {
-        fmt.Println("Error: ", err)
-        return
-    }
-
-    w := csv.NewWriter(f)
-    w.Write(column)
-    w.Flush()
-}
-
-func Generate(threads int) {
-    c := make(chan RambowTableElement)
-    initialValue := 0
-    rambowTableElements, _ := ReadCollisionDatabase()
-
-    for _, rambowTableElement := range rambowTableElements {
-        if rambowTableElement.initialValue > initialValue {
-            initialValue = rambowTableElement.initialValue
-        }
-    }
-
-    initialValue++
-
-    fmt.Printf("Generating rainbow table. Start position: %d\n", initialValue)
-
-    for i := 0; i < threads; i++ {
-        go GetRambowTableElement(initialValue, c)
-        initialValue++
-    }
-
-    for randowTableElement := range c {
-        AddColToCollisionDatabase([]string{strconv.Itoa(randowTableElement.initialValue), randowTableElement.finalHash})
-        go GetRambowTableElement(initialValue, c)
-        initialValue++
-    }
-}
-
-func SearchCollision(text string, rambowTableElements []RambowTableElement, hashset map[string]bool, wg *sync.WaitGroup) {
+func RainbowTableSearcher(text string, rambowTableElements []RambowTableElement, hashset map[string]bool, wg *sync.WaitGroup) {
     defer wg.Done()
     
     hash := GetMD5Hash(text)
@@ -145,20 +94,77 @@ func SearchCollision(text string, rambowTableElements []RambowTableElement, hash
     }
 }
 
-func main() {
-    if os.Args[ARG_OPERATION_INDEX] == "find" {
-        var wg sync.WaitGroup
-        args := os.Args[ARG_PARAMETER_INDEX:]
-        rambowTableElements, hashset := ReadCollisionDatabase()
 
-        wg.Add(len(args))
-        for _, collisionCandidate := range args {
-            go SearchCollision(collisionCandidate, rambowTableElements, hashset, &wg)
-            fmt.Printf("Searcher for '%s' has been started\n", collisionCandidate)
+func randSeq(n int) string {
+    symbols := []rune("0123456789abcdef")
+    randStr := make([]rune, n)
+    
+    for i := range randStr {
+        randStr[i] = symbols[rand.Intn(len(symbols))]
+    }
+    
+    return string(randStr)
+}
+
+func FloydCollisionSearcher(initialStr string, wg *sync.WaitGroup) {
+    defer wg.Done()
+
+    slowPointer := initialStr
+    fastPointer := initialStr
+    step := 0;
+
+    for {
+        step++
+        slowPointer = GetMD5Hash(slowPointer)
+        fastPointer = GetMD5Hash(GetMD5Hash(fastPointer))
+
+        if(slowPointer == fastPointer) {
+            fmt.Printf("Collision has been founded!\n Meeting point: %s. Step: %d. Initial value: %s. \n", slowPointer, step, initialStr)
+            break;
+        }
+    }
+
+    slowPointer = initialStr
+
+    for {
+        prevSlowPointer := slowPointer
+        prevFastPointer := fastPointer
+        slowPointer = GetMD5Hash(slowPointer)
+        fastPointer = GetMD5Hash(fastPointer)
+
+        if(slowPointer == fastPointer) {
+            fmt.Printf("Slow pointer: %s. Fast pointer: %s \n", prevSlowPointer, prevFastPointer)
+            break;
+        }
+    }
+
+}
+
+func main() {
+    if os.Args[ARG_OPERATION_INDEX] == "floydSearcher" {
+        var wg sync.WaitGroup
+        threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
+
+        wg.Add(threads)
+        for i := 0; i < threads; i++ {
+            randomString := randSeq(32)
+            go FloydCollisionSearcher(randomString, &wg)
+            fmt.Printf("Searcher for '%s' has been started\n", randomString)
         }
         wg.Wait()
-    } else {
-        threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
-        Generate(threads)
+    } else if os.Args[ARG_OPERATION_INDEX] == "rainbowTableSearcher" {
+        rambowTableElements, hashset := ReadRainbowTable()
+        for {
+            var wg sync.WaitGroup
+            threads, _ := strconv.Atoi(os.Args[ARG_PARAMETER_INDEX])
+            
+            wg.Add(threads)
+            for i := 0; i < threads; i++ {
+                randomString := randSeq(32)
+                go RainbowTableSearcher(randomString, rambowTableElements, hashset, &wg)
+                fmt.Printf("Searcher for '%s' has been started\n", randomString)
+            }
+            wg.Wait()
+        }
     }
 }
